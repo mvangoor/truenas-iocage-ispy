@@ -1,6 +1,6 @@
 #!/bin/sh
 # Build an iocage jail under FreeNAS 11.3-12.0 using the current release of Caddy
-# git clone https://github.com/danb35/freenas-iocage-caddy
+# git clone https://github.com/mvangoor/truenas-iocage-ispy
 
 # Check for root privileges
 if ! [ $(id -u) = 0 ]; then
@@ -22,9 +22,9 @@ INTERFACE="vnet0"
 VNET="on"
 POOL_PATH=""
 CONFIG_PATH=""
-JAIL_NAME="caddy"
+JAIL_NAME="ispy"
 DNS_PLUGIN=""
-CONFIG_NAME="caddy-config"
+CONFIG_NAME="ispy-config"
 
 # Check for caddy-config and set configuration
 SCRIPT=$(readlink -f "$0")
@@ -39,7 +39,7 @@ INCLUDES_PATH="${SCRIPTPATH}"/includes
 JAILS_MOUNT=$(zfs get -H -o value mountpoint $(iocage get -p)/iocage)
 RELEASE=$(freebsd-version | cut -d - -f -1)"-RELEASE"
 
-# Check that necessary variables were set by nextcloud-config
+# Check that necessary variables were set by ispy-config
 if [ -z "${JAIL_IP}" ]; then
   echo 'Configuration error: JAIL_IP must be set'
   exit 1
@@ -58,7 +58,7 @@ if [ -z "${POOL_PATH}" ]; then
 fi
 # If CONFIG_PATH wasn't set in caddy-config, set it
 if [ -z "${CONFIG_PATH}" ]; then
-  CONFIG_PATH="${POOL_PATH}"/apps/caddy
+  CONFIG_PATH="${POOL_PATH}"/apps/ispy
 fi
 
 # Extract IP and netmask, sanity check netmask
@@ -83,7 +83,7 @@ fi
 cat <<__EOF__ >/tmp/pkg.json
 	{
   "pkgs":[
-  "nano","bash","go","git"
+  "nano","bash","go","git","linux-dotnet-cli"
   ]
 }
 __EOF__
@@ -104,11 +104,11 @@ rm /tmp/pkg.json
 
 mkdir -p "${CONFIG_PATH}"
 
-iocage exec "${JAIL_NAME}" mkdir -p /mnt/includes
-iocage exec "${JAIL_NAME}" mkdir -p /usr/local/www
+# iocage exec "${JAIL_NAME}" mkdir -p /mnt/install
+# iocage exec "${JAIL_NAME}" mkdir -p /usr/local/www
 
-iocage fstab -a "${JAIL_NAME}" "${CONFIG_PATH}" /usr/local/www nullfs rw 0 0
-iocage fstab -a "${JAIL_NAME}" "${INCLUDES_PATH}" /mnt/includes nullfs rw 0 0
+# iocage fstab -a "${JAIL_NAME}" "${CONFIG_PATH}" /usr/local/www nullfs rw 0 0
+# iocage fstab -a "${JAIL_NAME}" "${INCLUDES_PATH}" /mnt/includes nullfs rw 0 0
 
 #####
 #
@@ -117,35 +117,35 @@ iocage fstab -a "${JAIL_NAME}" "${INCLUDES_PATH}" /mnt/includes nullfs rw 0 0
 #####
 
 # Build xcaddy, use it to build Caddy
-if ! iocage exec "${JAIL_NAME}" "go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest"
-then
-  echo "Failed to install xcaddy, terminating."
-  exit 1
-fi
-iocage exec "${JAIL_NAME}" mv /root/go/bin/xcaddy /usr/local/bin/xcaddy
-if [ -n "${DNS_PLUGIN}" ]; then
-  if ! iocage exec "${JAIL_NAME}" xcaddy build --output /usr/local/bin/caddy --with github.com/caddy-dns/"${DNS_PLUGIN}"
-  then
-    echo "Failed to build Caddy with ${DNS_PLUGIN} plugin, terminating."
-    exit 1
-  fi  
-else
-  if ! iocage exec "${JAIL_NAME}" xcaddy build --output /usr/local/bin/caddy
-  then
-    echo "Failed to build Caddy without plugin, terminating."
-    exit 1
-  fi  
-fi
+# if ! iocage exec "${JAIL_NAME}" "go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest"
+# then
+#   echo "Failed to install xcaddy, terminating."
+#   exit 1
+# fi
+# iocage exec "${JAIL_NAME}" mv /root/go/bin/xcaddy /usr/local/bin/xcaddy
+# if [ -n "${DNS_PLUGIN}" ]; then
+#   if ! iocage exec "${JAIL_NAME}" xcaddy build --output /usr/local/bin/caddy --with github.com/caddy-dns/"${DNS_PLUGIN}"
+#   then
+#     echo "Failed to build Caddy with ${DNS_PLUGIN} plugin, terminating."
+#     exit 1
+#   fi  
+# else
+#   if ! iocage exec "${JAIL_NAME}" xcaddy build --output /usr/local/bin/caddy
+#   then
+#     echo "Failed to build Caddy without plugin, terminating."
+#     exit 1
+#   fi  
+# fi
 
 # Copy pre-written config files
-iocage exec "${JAIL_NAME}" cp /mnt/includes/caddy /usr/local/etc/rc.d/
-iocage exec "${JAIL_NAME}" cp /mnt/includes/Caddyfile.example /usr/local/www/
-iocage exec "${JAIL_NAME}" cp -n /mnt/includes/Caddyfile /usr/local/www/ 2>/dev/null
+# iocage exec "${JAIL_NAME}" cp /mnt/includes/caddy /usr/local/etc/rc.d/
+# iocage exec "${JAIL_NAME}" cp /mnt/includes/Caddyfile.example /usr/local/www/
+# iocage exec "${JAIL_NAME}" cp -n /mnt/includes/Caddyfile /usr/local/www/ 2>/dev/null
 
-iocage exec "${JAIL_NAME}" sysrc caddy_enable="YES"
-iocage exec "${JAIL_NAME}" sysrc caddy_config="/usr/local/www/Caddyfile"
+# iocage exec "${JAIL_NAME}" sysrc caddy_enable="YES"
+# iocage exec "${JAIL_NAME}" sysrc caddy_config="/usr/local/www/Caddyfile"
 
-iocage restart "${JAIL_NAME}"
+# iocage restart "${JAIL_NAME}"
 
 # Don't need /mnt/includes any more, so unmount it
-iocage fstab -r "${JAIL_NAME}" "${INCLUDES_PATH}" /mnt/includes nullfs rw 0 0
+# iocage fstab -r "${JAIL_NAME}" "${INCLUDES_PATH}" /mnt/includes nullfs rw 0 0
